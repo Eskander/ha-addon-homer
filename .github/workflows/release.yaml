@@ -22,10 +22,14 @@ jobs:
         uses: actions/checkout@v4.2.2
 
       - name: Enable Auto-Merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
 
       - name: Add Auto-Merged Label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" --add-label "auto-merged"
 
@@ -37,9 +41,6 @@ jobs:
     outputs:
       addon_version: ${{ steps.extract-update.outputs.addon_version }}
     steps:
-      - name: Authenticate with GitHub CLI
-        run: gh auth login
-
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
 
@@ -71,6 +72,8 @@ jobs:
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
 
       - name: Commit and Push Changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git add src/config.yaml src/CHANGELOG.md
           git commit -m "Bump version to ${{ steps.extract-update.outputs.addon_version }}"
@@ -81,11 +84,12 @@ jobs:
     needs: version-bump
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticate with GitHub CLI
-        run: gh auth login
-
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
+
+      - name: Fetch Dependency Metadata
+        id: dependabot-metadata
+        uses: dependabot/fetch-metadata@v2.1.0
 
       - name: Get Commit List
         id: get-commits
@@ -106,14 +110,27 @@ jobs:
           echo "$EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          PR_BODY=$(cat <<EOF
+          ## Automated Release Update
+          
+          ### Version: ${{ needs.version-bump.outputs.addon_version }}
+          
+          ### Dependency Updates
+          - Package: ${{ env.WATCH_PACKAGE }}
+          - Updated Version: ${{ steps.dependabot-metadata.outputs.new-version }}
+          
+          ### Commits
+          ${{ steps.get-commits.outputs.commits }}
+          EOF
+          )
+          
           gh pr create \
             --base release \
             --head main \
-            --title "Update ${{ needs.version-bump.outputs.new_version }}" \
-            --body "This PR updates the release branch to version ${{ needs.version-bump.outputs.new_version }}.
-            
-            ## Commits included in this release:
-            ${{ steps.get-commits.outputs.commits }}" \
+            --title "Release: ${{ needs.version-bump.outputs.addon_version }}" \
+            --body "$PR_BODY" \
             --reviewer "Eskander" \
             --assignee "Eskander"
