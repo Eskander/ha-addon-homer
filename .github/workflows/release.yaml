@@ -1,26 +1,61 @@
 name: Release
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Dependabot Auto-Merge"]
+    types:
+      - completed
 
 env:
   WATCH_PACKAGE: "bastienwirtz/homer"
 
 jobs:
+  validate-package:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check-package.outputs.should_run }}
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - uses: dependabot/fetch-metadata@v2
+        id: dependabot-metadata
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Check Package
+        id: check-package
+        env:
+          PACKAGE_DEPENDENCY: ${{ steps.dependabot-metadata.outputs.dependency-name }}
+        run: |
+          FULL_PACKAGE="${{ env.WATCH_PACKAGE }}"
+          echo "Watching package: $FULL_PACKAGE"
+          echo "Dependabot updated: $PACKAGE_DEPENDENCY"
+          
+          if [[ "$PACKAGE_DEPENDENCY" == "$FULL_PACKAGE" ]]; then
+            echo "Package matches. Proceeding with workflow."
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Package does not match. Skipping workflow."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
   version-bump:
-    if: |
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.title, github.env.WATCH_PACKAGE)
+    needs: validate-package
+    if: needs.validate-package.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     outputs:
-      new_version: ${{ steps.extract.outputs.new_version }}
+      addon_version: ${{ steps.extract.outputs.addon_version }}
 
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - uses: dependabot/fetch-metadata@v2
         id: dependabot-metadata
@@ -30,7 +65,7 @@ jobs:
       - name: Extract versions and package info
         id: extract
         env:
-          PACKAGE_VERSION: ${{ steps.dependabot-metadata.outputs.new-version }}
+          DEPENDABOT_VERSION: ${{ steps.dependabot-metadata.outputs.new-version }}
         run: |
           # Extract current version from config.yaml
           CURRENT_VERSION=$(grep "version:" src/config.yaml | sed 's/.*: "\(.*\)"/\1/')
@@ -40,23 +75,23 @@ jobs:
           MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
           MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
           NEW_MINOR=$((MINOR + 1))
-          NEW_VERSION="$MAJOR.$NEW_MINOR"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          ADDON_VERSION="$MAJOR.$NEW_MINOR"
+          echo "addon_version=$ADDON_VERSION" >> $GITHUB_OUTPUT
           
           # Use the package version from dependabot metadata
-          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+          echo "dependabot_version=$DEPENDABOT_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version in config.yaml
         run: |
-          sed -i 's/version: ".*"/version: "${{ steps.extract.outputs.new_version }}"/' src/config.yaml
+          sed -i 's/version: ".*"/version: "${{ steps.extract.outputs.addon_version }}"/' src/config.yaml
 
       - name: Update CHANGELOG.md
         env:
-          NEW_VERSION: ${{ steps.extract.outputs.new_version }}
-          PACKAGE_VERSION: ${{ steps.extract.outputs.package_version }}
+          ADDON_VERSION: ${{ steps.extract.outputs.addon_version }}
+          DEPENDABOT_VERSION: ${{ steps.extract.outputs.dependabot_version }}
         run: |
           # Prepare new entry with the specified format
-          NEW_ENTRY="# ${NEW_VERSION}\n- Update ${WATCH_PACKAGE} to ${PACKAGE_VERSION}\n"
+          NEW_ENTRY="# ${ADDON_VERSION}\n- Update ${WATCH_PACKAGE} to ${DEPENDABOT_VERSION}\n"
           
           # Prepend new entry to CHANGELOG.md
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
@@ -70,7 +105,7 @@ jobs:
       - name: Commit and push changes
         run: |
           git add src/config.yaml src/CHANGELOG.md
-          git commit -m "Bump version to ${{ steps.extract.outputs.new_version }}"
+          git commit -m "Bump version to ${{ steps.extract.outputs.addon_version }}"
           git push
 
   create-pr:
@@ -110,12 +145,13 @@ jobs:
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADDON_VERSION: ${{ needs.version-bump.outputs.addon_version }}
         run: |
           PR_URL=$(gh pr create \
             --base release \
             --head main \
-            --title "Update ${{ needs.version-bump.outputs.new_version }}" \
-            --body "This PR updates the release branch to version ${{ needs.version-bump.outputs.new_version }}.
+            --title "Update $ADDON_VERSION" \
+            --body "This PR updates the release branch to version $ADDON_VERSION.
             
             ## Commits included in this release:
             ${{ steps.get-commits.outputs.commits }}" \
