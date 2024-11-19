@@ -1,3 +1,5 @@
+# 1.12
+- Update bastienwirtz/homer to v24.11.4
 # 1.11
 - Bump bastienwirtz/homer from v24.11.3 to v24.11.4
 # 1.10
