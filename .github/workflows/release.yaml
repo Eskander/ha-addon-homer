@@ -46,7 +46,7 @@ jobs:
 
       - name: Fetch Dependency Metadata
         id: dependabot-metadata
-        uses: dependabot/fetch-metadata@v2.1.0
+        uses: dependabot/fetch-metadata@v2.2.0
 
       - name: Extract and Update Versions
         id: extract-update
@@ -89,7 +89,7 @@ jobs:
 
       - name: Fetch Dependency Metadata
         id: dependabot-metadata
-        uses: dependabot/fetch-metadata@v2.1.0
+        uses: dependabot/fetch-metadata@v2.2.0
 
       - name: Get Commit List
         id: get-commits
