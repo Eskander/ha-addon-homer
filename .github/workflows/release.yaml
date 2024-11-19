@@ -12,7 +12,7 @@ jobs:
   version-bump:
     if: |
       github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.title, '${{ env.WATCH_PACKAGE }}')
+      contains(github.event.pull_request.title, github.env.WATCH_PACKAGE)
     runs-on: ubuntu-latest
     permissions:
       contents: write
