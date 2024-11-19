@@ -17,6 +17,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
+
+      - name: Fetch all branches
+        run: |
+          git fetch origin release:release --no-tags
 
       - name: Extract version from config
         id: get-version
@@ -51,5 +56,6 @@ jobs:
             ## Commits included in this release:
             ${{ steps.get-commits.outputs.commits }}
             
+            Please review the changes and merge when ready.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_reviewer: "Eskander"
