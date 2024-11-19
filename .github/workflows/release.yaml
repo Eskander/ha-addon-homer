@@ -5,19 +5,24 @@ on:
     types:
       - closed
 
+env:
+  WATCH_PACKAGE: "bastienwirtz/homer"
+
 jobs:
   version-bump:
     if: |
       github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.title, 'bastienwirtz/homer')
+      contains(github.event.pull_request.title, env.WATCH_PACKAGE)
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      new_version: ${{ steps.extract.outputs.new_version }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract current version and PR title
+      - name: Extract versions and package info
         id: extract
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -33,18 +38,21 @@ jobs:
           NEW_VERSION="$MAJOR.$NEW_MINOR"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           
-          # Clean PR title (remove backticks and "in /src")
-          CLEAN_TITLE=$(echo "$PR_TITLE" | sed 's/`//g' | sed 's/ in \/src$//')
-          echo "pr_title=${CLEAN_TITLE}" >> $GITHUB_OUTPUT
+          # Extract package version from PR title - everything between "to" and "in /src"
+          PACKAGE_VERSION=$(echo "$PR_TITLE" | sed -n 's/.*to \(.*\) in \/src.*/\1/p')
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version in config.yaml
         run: |
           sed -i 's/version: ".*"/version: "${{ steps.extract.outputs.new_version }}"/' src/config.yaml
 
       - name: Update CHANGELOG.md
+        env:
+          NEW_VERSION: ${{ steps.extract.outputs.new_version }}
+          PACKAGE_VERSION: ${{ steps.extract.outputs.package_version }}
         run: |
-          # Prepare new entry
-          NEW_ENTRY="# ${{ steps.extract.outputs.new_version }}\n- ${{ steps.extract.outputs.pr_title }}\n"
+          # Prepare new entry with the specified format
+          NEW_ENTRY="# ${NEW_VERSION}\n- Update ${WATCH_PACKAGE} to ${PACKAGE_VERSION}\n"
           
           # Prepend new entry to CHANGELOG.md
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
@@ -56,3 +64,52 @@ jobs:
           git add src/config.yaml src/CHANGELOG.md
           git commit -m "Bump version to ${{ steps.extract.outputs.new_version }}"
           git push
+
+  create-pr:
+    needs: version-bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Fetch all branches
+        run: |
+          git fetch origin release:release --no-tags
+
+      - name: Get commit list
+        id: get-commits
+        run: |
+          # Get the last commit that was merged to release
+          LAST_RELEASE_COMMIT=$(git merge-base main release)
+          
+          # Get all commits between last release and current main
+          COMMITS=$(git log --pretty=format:"- %s (%h)" $LAST_RELEASE_COMMIT..main)
+          
+          # Properly handle multiline output for GitHub Actions
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "commits<<$EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: "main"
+          destination_branch: "release"
+          pr_title: "Update ${{ needs.version-bump.outputs.new_version }}"
+          pr_body: |
+            This PR updates the release branch to version ${{ needs.version-bump.outputs.new_version }}.
+            
+            ## Commits included in this release:
+            ${{ steps.get-commits.outputs.commits }}
+            
+            Please review the changes and merge when ready.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_reviewer: "Eskander"
+          pr_assignee: "Eskander"
