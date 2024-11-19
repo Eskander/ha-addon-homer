@@ -57,10 +57,14 @@ jobs:
           # Prepend new entry to CHANGELOG.md
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
 
-      - name: Commit and push changes
+      - name: Setup GitHub CLI
         run: |
+          gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+      - name: Commit and push changes
+        run: |
           git add src/config.yaml src/CHANGELOG.md
           git commit -m "Bump version to ${{ steps.extract.outputs.new_version }}"
           git push
@@ -78,13 +82,15 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Fetch all branches
-        run: |
-          git fetch origin release:release --no-tags
+      - name: Setup GitHub CLI
+        run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Get commit list
         id: get-commits
         run: |
+          # Fetch release branch
+          git fetch origin release:release --no-tags
+          
           # Get the last commit that was merged to release
           LAST_RELEASE_COMMIT=$(git merge-base main release)
           
@@ -98,18 +104,18 @@ jobs:
           echo "$EOF" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: "main"
-          destination_branch: "release"
-          pr_title: "Update ${{ needs.version-bump.outputs.new_version }}"
-          pr_body: |
-            This PR updates the release branch to version ${{ needs.version-bump.outputs.new_version }}.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --base release \
+            --head main \
+            --title "Update ${{ needs.version-bump.outputs.new_version }}" \
+            --body "This PR updates the release branch to version ${{ needs.version-bump.outputs.new_version }}.
             
             ## Commits included in this release:
-            ${{ steps.get-commits.outputs.commits }}
-            
-            Please review the changes and merge when ready.
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_reviewer: "Eskander"
-          pr_assignee: "Eskander"
+            ${{ steps.get-commits.outputs.commits }}" \
+            --reviewer "Eskander" \
+            --assignee "Eskander")
+          
+          echo "Created PR: $PR_URL"
