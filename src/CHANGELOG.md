@@ -1,3 +1,5 @@
+# 1.56
+- Update bastienwirtz/homer to v24.11.4
 # $ADDON_VERSION.
 - Update bastienwirtz/homer to v24.11.4
 # 1.12
