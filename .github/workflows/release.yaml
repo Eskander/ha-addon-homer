@@ -35,7 +35,7 @@ jobs:
 
   version-bump:
     name: Version Bump
-    if: contains(github.event.pull_request.title, github.env.WATCH_PACKAGE)
+    if: contains(github.event.pull_request.title, env.WATCH_PACKAGE)
     runs-on: ubuntu-latest
     needs: dependabot-auto-merge
     outputs:
