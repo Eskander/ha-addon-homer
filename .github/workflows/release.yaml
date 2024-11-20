@@ -20,6 +20,7 @@ jobs:
     if: ${{ github.actor == 'dependabot[bot]' }}
     outputs:
       is_release: ${{ steps.check.outputs.is_release }}
+      dependabot_version: ${{ steps.metadata.outputs.new-version }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
@@ -44,7 +45,7 @@ jobs:
 
   version-bump:
     name: Version Bump
-    needs: auto-merge
+    needs: [auto-merge]
     if: ${{ needs.auto-merge.outputs.is_release == 'true' }}
     runs-on: ubuntu-latest
     outputs:
@@ -52,6 +53,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
+        with:
+          ref: main
 
       - name: Fetch Dependency Metadata
         id: metadata
@@ -75,7 +78,7 @@ jobs:
           sed -i 's/version: ".*"/version: "$ADDON_VERSION"/' src/config.yaml
           
           # Update CHANGELOG.md
-          NEW_ENTRY="# $ADDON_VERSION\n- Update ${WATCH_PACKAGE} to ${{ steps.metadata.outputs.dependabot_version }}\n"
+          NEW_ENTRY="# $ADDON_VERSION\n- Update ${WATCH_PACKAGE} to ${{ needs.auto-merge.outputs.dependabot_version }}\n"
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
 
       - name: Commit and Push Changes
@@ -88,16 +91,14 @@ jobs:
 
   create-pr:
     name: Create Release PR
-    needs: version-bump
+    needs: [auto-merge, version-bump]
     if: ${{ needs.auto-merge.outputs.is_release == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
-
-      - name: Fetch Dependency Metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v2.2.0
+        with:
+          ref: main
 
       - name: Get Commit List
         id: get-commits
@@ -126,7 +127,7 @@ jobs:
           
           ### Dependency Updates
           - Package: ${{ env.WATCH_PACKAGE }}
-          - Updated Version: ${{ steps.metadata.outputs.new-version }}
+          - Updated Version: ${{ needs.auto-merge.outputs.dependabot_version }}
           
           ### Commits
           ${{ steps.get-commits.outputs.commits }}
