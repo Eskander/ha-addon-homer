@@ -75,7 +75,7 @@ jobs:
           echo "addon_version=$ADDON_VERSION" >> $GITHUB_OUTPUT
           
           # Update config.yaml with the new addon version
-          sed -i 's/version: ".*"/version: $ADDON_VERSION/' src/config.yaml
+          sed -i "s/version: .*/version: \"$ADDON_VERSION\"/" src/config.yaml
           
           # Update CHANGELOG.md
           NEW_ENTRY="# $ADDON_VERSION\n- Update ${{ env.WATCH_PACKAGE }} to ${{ needs.auto-merge.outputs.dependabot_version }}\n"
