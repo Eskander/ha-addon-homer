@@ -103,13 +103,10 @@ jobs:
       - name: Get Commit List
         id: get-commits
         run: |
-          # Fetch release branch
-          git fetch origin release:release --no-tags
-          
-          # Get the last commit that was merged to release
-          LAST_RELEASE_COMMIT=$(git merge-base main release)
-          
-          # Get all commits between last release and current main
+          # Get the last commit that was merged into the remote release branch
+          LAST_RELEASE_COMMIT=$(git merge-base main origin/release)
+
+          # Log commits between the last release and the current main branch
           COMMITS=$(git log --pretty=format:"- %s (%h)" $LAST_RELEASE_COMMIT..main)
           
           # Properly handle multiline output for GitHub Actions
