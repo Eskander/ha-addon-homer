@@ -75,10 +75,10 @@ jobs:
           echo "addon_version=$ADDON_VERSION" >> $GITHUB_OUTPUT
           
           # Update config.yaml with the new addon version
-          sed -i 's/version: ".*"/version: "$ADDON_VERSION"/' src/config.yaml
+          sed -i 's/version: ".*"/version: $ADDON_VERSION/' src/config.yaml
           
           # Update CHANGELOG.md
-          NEW_ENTRY="# $ADDON_VERSION\n- Update ${WATCH_PACKAGE} to ${{ needs.auto-merge.outputs.dependabot_version }}\n"
+          NEW_ENTRY="# $ADDON_VERSION\n- Update ${{ env.WATCH_PACKAGE }} to ${{ needs.auto-merge.outputs.dependabot_version }}\n"
           echo -e "$NEW_ENTRY$(cat src/CHANGELOG.md)" > src/CHANGELOG.md
 
       - name: Commit and Push Changes
@@ -99,14 +99,18 @@ jobs:
         uses: actions/checkout@v4.2.2
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Get Commit List
         id: get-commits
         run: |
-          # Get the last commit that was merged into the remote release branch
-          LAST_RELEASE_COMMIT=$(git merge-base main origin/release)
-
-          # Log commits between the last release and the current main branch
+          # Fetch release branch
+          git fetch origin release:release --no-tags
+          
+          # Get the last commit that was merged to release
+          LAST_RELEASE_COMMIT=$(git merge-base main release)
+          
+          # Get all commits between last release and current main
           COMMITS=$(git log --pretty=format:"- %s (%h)" $LAST_RELEASE_COMMIT..main)
           
           # Properly handle multiline output for GitHub Actions
