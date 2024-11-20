@@ -1,5 +1,5 @@
 name: Homer
-version: "$ADDON_VERSION"
+version: "1.55"
 slug: homer
 description: A very simple static homepage for your server
 url: https://github.com/Eskander/ha-addon-homer
