@@ -27,7 +27,7 @@ jobs:
 
       - name: Fetch Dependency Metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2.1.0
+        uses: dependabot/fetch-metadata@v2.2.0
 
       - name: Check Release
         id: check
