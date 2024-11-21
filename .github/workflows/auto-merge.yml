@@ -25,4 +25,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" --add-label "auto-merged"
-          gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
+          gh pr merge "${{ github.event.pull_request.number }}" --merge
