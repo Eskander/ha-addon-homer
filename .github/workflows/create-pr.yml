@@ -129,6 +129,6 @@ jobs:
 
       - name: Add label for CI
         env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+          GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         run: |
           gh pr edit ${{ steps.create-pr.outputs.pr_url }} --add-label "release"
