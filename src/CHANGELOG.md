@@ -1,3 +1,5 @@
+# 1.12
+- Update docker/build-push-action to 6.9.0
 # 1.11
 - Update bastienwirtz/homer to v24.11.4
 # 1.10
