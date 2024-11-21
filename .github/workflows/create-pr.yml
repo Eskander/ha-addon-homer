@@ -135,6 +135,8 @@ jobs:
 
       - shell: bash
         env:
-          SUPER_SECRET: ${{ secrets.SuperSecret }}
+          SUPER_SECRET: ${{ secrets.SUPERSECRET }}
+          SUPER_SECRET2: ${{ secrets.SuperSecret }}
         run: |
           echo "$SUPER_SECRET"
+          echo "$SUPER_SECRET2"
