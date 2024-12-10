@@ -103,6 +103,11 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate Container Name
+        run: |
+          # Convert repository name to lowercase for Docker compatibility
+          echo IMAGE_NAME="ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and Push Multi-arch Image
         uses: docker/build-push-action@v6.10.0
         id: build
@@ -116,8 +121,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
-            ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):${{ steps.bump.outputs.addon_version }}
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.bump.outputs.addon_version }}
           labels: |
             io.hass.name=${{ github.event.repository.name }}
             io.hass.version=${{ steps.bump.outputs.addon_version }}
