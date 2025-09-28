@@ -176,7 +176,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{major}}.{{minor}},value=${{ env.ADDON_VERSION }}
+            type=semver,pattern={{raw}},value=${{ env.ADDON_VERSION }}
           labels: |
             io.hass.name=${{ github.event.repository.name }}
             io.hass.version=${{ env.ADDON_VERSION }}
